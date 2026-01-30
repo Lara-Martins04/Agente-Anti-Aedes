@@ -1,1 +1,438 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Agente Anti-Aedes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            overscroll-behavior: none;
+            touch-action: none;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+            user-select: none;
+            -webkit-user-select: none;
+        }
 
+        /* Animações do Card */
+        @keyframes cardEnter {
+            from { transform: scale(0.9) translateY(20px); opacity: 0; }
+            to { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        
+        @keyframes swipeRight {
+            to { transform: translateX(1000px) rotate(30deg); opacity: 0; }
+        }
+        
+        @keyframes swipeLeft {
+            to { transform: translateX(-1000px) rotate(-30deg); opacity: 0; }
+        }
+
+        .animate-enter { animation: cardEnter 0.4s ease-out forwards; }
+        .animate-swipe-right { animation: swipeRight 0.5s ease-out forwards; }
+        .animate-swipe-left { animation: swipeLeft 0.5s ease-out forwards; }
+
+        /* Utilitários */
+        .hidden { display: none !important; }
+        
+        /* Mosquito Animation */
+        .mosquito {
+            position: absolute;
+            transition: all 2s ease-in-out;
+            pointer-events: none;
+            z-index: 50;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0"
+  }
+}
+</script>
+</head>
+<body class="bg-slate-900 text-white w-screen h-[100dvh] overflow-hidden">
+
+    <!-- Camada de Mosquitos -->
+    <div id="mosquito-layer" class="absolute inset-0 pointer-events-none z-50 overflow-hidden"></div>
+
+    <!-- TELA 1: INÍCIO -->
+    <div id="start-screen" class="w-full h-full flex flex-col items-center justify-center p-8 text-center bg-gradient-to-br from-blue-900 to-slate-900 relative z-10">
+        <div class="mb-8 relative">
+            <div class="absolute inset-0 bg-blue-500 rounded-full blur-3xl opacity-20 animate-pulse"></div>
+            <img src="https://i.imgur.com/zJo4otn.png" alt="Aedes" class="w-48 h-48 rounded-full border-4 border-white/20 shadow-2xl object-cover relative z-10">
+        </div>
+        <h1 class="text-5xl font-black mb-4 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-green-400">
+            Agente<br/>Anti-Aedes
+        </h1>
+        <p class="text-lg text-slate-300 mb-8 max-w-md">
+            Você é um agente de saúde! Deslize as cartas para tomar as decisões corretas e eliminar os focos do mosquito.
+        </p>
+        <div class="space-y-4 text-sm text-slate-400 mb-8">
+            <p class="flex items-center justify-center gap-2"><span class="text-green-400 font-bold">Acerto</span> = Elimina Mosquitos</p>
+            <p class="flex items-center justify-center gap-2"><span class="text-red-400 font-bold">Erro</span> = Mosquitos Multiplicam</p>
+        </div>
+        <button onclick="startGame()" class="flex items-center gap-3 bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-12 rounded-full text-xl transition-all hover:scale-105 active:scale-95 shadow-lg shadow-green-500/30 cursor-pointer">
+            <!-- Icon Play -->
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Jogar Agora
+        </button>
+    </div>
+
+    <!-- TELA 2: JOGO -->
+    <div id="game-screen" class="hidden relative w-full h-full flex flex-col items-center justify-center bg-slate-100 overflow-hidden">
+        
+        <!-- Barra de Progresso -->
+        <div class="absolute top-0 left-0 w-full h-2 bg-slate-200 z-50">
+            <div id="progress-bar" class="h-full bg-green-500 transition-all duration-300" style="width: 0%"></div>
+        </div>
+
+        <!-- Stats (Mosquitos) -->
+        <div class="absolute top-4 w-full px-6 flex justify-between z-40 pointer-events-none">
+            <div class="bg-white/80 backdrop-blur text-slate-800 px-4 py-2 rounded-full font-bold shadow-sm flex items-center gap-2">
+                <img src="https://i.imgur.com/zJo4otn.png" class="w-5 h-5" alt="Mosquito Icon"/> 
+                <span id="score-counter">0</span>
+            </div>
+        </div>
+
+        <!-- Container do Card (Onde o card é injetado via JS) -->
+        <div id="card-container" class="relative w-full h-full max-w-md flex items-center justify-center z-30 perspective-1000">
+            <!-- Card entra aqui -->
+        </div>
+    </div>
+
+    <!-- TELA 3: FIM -->
+    <div id="end-screen" class="hidden h-full flex flex-col items-center justify-center p-6 text-center bg-slate-900 text-white relative z-50">
+        <div class="z-10 bg-slate-800/90 backdrop-blur-md p-8 rounded-3xl border border-slate-700 shadow-2xl max-w-md w-full">
+            <div id="end-icon-container" class="mb-6 inline-flex p-4 rounded-full bg-slate-700 shadow-inner">
+                <!-- Icone injetado via JS -->
+            </div>
+            <h2 id="end-title" class="text-4xl font-bold mb-2"></h2>
+            <p id="end-message" class="text-slate-400 mb-6"></p>
+            
+            <div class="grid grid-cols-2 gap-4 mb-8">
+                <div class="bg-slate-700/50 p-4 rounded-2xl">
+                    <span id="end-mosquito-count" class="block text-3xl font-bold text-white">0</span>
+                    <span class="text-xs text-slate-400 uppercase tracking-wider">Mosquitos</span>
+                </div>
+                <div class="bg-slate-700/50 p-4 rounded-2xl">
+                    <span id="end-score" class="block text-3xl font-bold text-white">0</span>
+                    <span class="text-xs text-slate-400 uppercase tracking-wider">Pontuação</span>
+                </div>
+            </div>
+
+            <button onclick="startGame()" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-xl transition-colors shadow-lg cursor-pointer">
+                <!-- Icon Refresh -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+                Tentar Novamente
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- DADOS (SCENARIOS) ---
+        const SCENARIOS = [
+            { id: '1', title: 'Pneus Velhos', description: 'Acumulo de pneus velhos no quintal, concentra grandes quantidade de água.', imageUrl: 'https://image.portaldacidade.com/unsafe/https://bucket.portaldacidade.com/loanda.portaldacidade.com/img/news/2025-01/coleta-de-pneus-usados-mobiliza-porto-rico-no-combate-a-dengue-nesta-quarta-22-678fd36cb26e8.jpeg', correctAction: 'Furar e guardar em local coberto', wrongAction: 'Deixar empilhado no fundo do quintal' },
+            { id: '2', title: 'Vaso de Planta', description: 'O pratinho da planta está cheio de água parada.', imageUrl: 'https://central.to.gov.br/image/10920?w=600&h=370', correctAction: 'Colocar areia até a borda do prato', wrongAction: 'Apenas trocar a água uma vez por mês' },
+            { id: '3', title: "Caixa D'água", description: "A caixa d'água está sem a tampa original.", imageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS45B4HSpqRaRt9HU5Ee0ldz1spFffouAVpzw&s', correctAction: 'Tampar adequadamente ou usar tela', wrongAction: 'Cobrir com uma tábua solta' },
+            { id: '4', title: 'Garrafas Vazias', description: 'Várias garrafas de vidro vazias no chão.', imageUrl: 'https://static.vecteezy.com/ti/fotos-gratis/p1/8672573-uma-garrafa-com-uma-bebida-alcoolica-vencida-lancada-em-uma-poca-na-rua-o-problema-do-alcoolismo-na-sociedade-foto.jpg', correctAction: 'Guardar de boca para baixo', wrongAction: 'Deixar em pé para reciclar depois' },
+            { id: '5', title: 'Lixo no Terreno', description: 'Acúmulo de lixo plástico em terreno baldio.', imageUrl: 'https://media.imperatriz.ma.gov.br/rcym_KYZqj6LHzJtVX6YTlsVN_Y=/750x0/novo.imperatriz.ma.gov.br/media/site/content/article/Legenda_O_superintendente_Alan_Jhones_limpeza_pede_apoio_da_comunidade_e_alerta_para_o_problema_de_despejo_de_lixo_em_terrenos_baldios__Foto_Gil_Carvalho.jpg', correctAction: 'Recolher e fechar em sacos de lixo', wrongAction: 'Queimar o lixo para eliminar' },
+            { id: '6', title: 'Calhas Entupidas', description: 'Folhas bloqueando a passagem da água na calha.', imageUrl: 'https://thumbs.dreamstime.com/b/limpeza-de-calhas-uma-calha-chuva-entupida-um-telhado-amianto-com-%C3%A1gua-n%C3%A3o-corrente-neve-derretida-devido-limpas-da-sujeira-e-260249477.jpg', correctAction: 'Remover folhas e desentupir', wrongAction: 'Esperar a próxima chuva forte limpar' },
+            { id: '7', title: 'Piscina sem Uso', description: 'Uma piscina que não está sendo tratada adequadamente.', imageUrl: 'https://thumbs.dreamstime.com/b/piscina-com-%C3%A1gua-verde-suja-arruinada-224826467.jpg', correctAction: 'Tratar com cloro regularmente', wrongAction: 'Esvaziar parcialmente e deixar assim' },
+            { id: '8', title: 'Bebedouro do Pet', description: 'A vasilha de água do animal de estimação está criando limo nas bordas.', imageUrl: 'https://odontovet.com/wp-content/uploads/2016/06/post-blog-modelo-beberagua.jpg', correctAction: 'Lavar com bucha e sabão todo dia', wrongAction: 'Apenas completar com água nova' },
+            { id: '9', title: 'Ralo Externo', description: 'Um ralo no quintal pode acumular um pouco de água da chuva.', imageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ4GBqSn0jPa9KEQ50N03rg89_um6HMQ1aDGw&s', correctAction: 'Colocar tela de nylon ou fechar', wrongAction: 'Jogar água sanitária uma vez ao ano' },
+            { id: '10', title: 'Bandeja da Geladeira', description: 'Atrás da geladeira, a bandeja coletora está cheia de água.', imageUrl: 'https://mediacdn.simonetti.com.br/media/catalog/product/cache/f777e0fcb693fc2eda14df7367849c5a/6/2/62482_3.jpg', correctAction: 'Retirar e lavar a bandeja semanalmente', wrongAction: 'Deixar secar naturalmente com o calor' },
+            { id: '11', title: 'Lona Plástica', description: 'Lona usada para cobrir materiais no quintal.', imageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTkzXohmM4KnjtxKj89GVKR0DctBIQ1dHzgUg&s', correctAction: 'Esticar bem para não formar poças', wrongAction: 'Deixar solta sobre os materiais' },
+            { id: '12', title: 'Vaso Sanitário', description: 'Um banheiro que quase nunca é usado, deve ser monitorado.', imageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTQw3VH73g3ZmqlFRAOWhCjPtWQQ1JRM9tzRQ&s', correctAction: 'Manter a tampa sempre fechada', wrongAction: 'Deixar a tampa aberta para ventilar' }
+        ];
+
+        const MOSQUITO_IMG = "https://i.imgur.com/zJo4otn.png";
+
+        // --- ESTADO DO JOGO ---
+        let deck = [];
+        let currentIndex = 0;
+        let mosquitoCount = 0;
+        let mosquitoInterval = null;
+
+        // Elementos DOM
+        const startScreen = document.getElementById('start-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const endScreen = document.getElementById('end-screen');
+        const cardContainer = document.getElementById('card-container');
+        const progressBar = document.getElementById('progress-bar');
+        const scoreCounter = document.getElementById('score-counter');
+        const mosquitoLayer = document.getElementById('mosquito-layer');
+
+        // --- LÓGICA DE INICIALIZAÇÃO ---
+        
+        function shuffleDeck() {
+            return SCENARIOS.map(scenario => ({
+                scenario,
+                leftIsCorrect: Math.random() > 0.5
+            })).sort(() => Math.random() - 0.5);
+        }
+
+        function startGame() {
+            // Resetar estado
+            deck = shuffleDeck();
+            currentIndex = 0;
+            mosquitoCount = 0;
+            
+            // UI Update
+            updateMosquitoes(0); // Limpa mosquitos iniciais
+            scoreCounter.innerText = "0";
+            progressBar.style.width = "0%";
+            
+            // Troca de Telas
+            startScreen.classList.add('hidden');
+            endScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+
+            renderCurrentCard();
+            startMosquitoAnimation();
+        }
+
+        // --- LÓGICA DOS MOSQUITOS ---
+        function startMosquitoAnimation() {
+            if(mosquitoInterval) clearInterval(mosquitoInterval);
+            
+            mosquitoInterval = setInterval(() => {
+                const bugs = document.querySelectorAll('.mosquito');
+                bugs.forEach(bug => {
+                    bug.style.transform = `translate(${Math.random() * (window.innerWidth - 50)}px, ${Math.random() * (window.innerHeight - 50)}px) rotate(${Math.random() * 360}deg)`;
+                });
+            }, 2000);
+        }
+
+        function updateMosquitoes(count) {
+            mosquitoLayer.innerHTML = ''; // Limpa
+            const visualCount = Math.min(count, 50); // Cap
+            
+            for(let i=0; i < visualCount; i++) {
+                const img = document.createElement('img');
+                img.src = MOSQUITO_IMG;
+                img.className = 'mosquito w-12 h-12 drop-shadow-md opacity-90';
+                img.style.left = '0px';
+                img.style.top = '0px';
+                // Posição inicial aleatória
+                img.style.transform = `translate(${Math.random() * (window.innerWidth - 50)}px, ${Math.random() * (window.innerHeight - 50)}px) rotate(${Math.random() * 360}deg)`;
+                mosquitoLayer.appendChild(img);
+            }
+        }
+
+        // --- LÓGICA DE FIM DE JOGO ---
+        function endGame() {
+            gameScreen.classList.add('hidden');
+            endScreen.classList.remove('hidden');
+
+            const score = Math.max(0, 100 - (mosquitoCount * 5));
+            const isWin = score > 70;
+
+            const iconContainer = document.getElementById('end-icon-container');
+            const title = document.getElementById('end-title');
+            const message = document.getElementById('end-message');
+            const endMosquitoCount = document.getElementById('end-mosquito-count');
+            const endScore = document.getElementById('end-score');
+
+            if (isWin) {
+                // Trophy Icon
+                iconContainer.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-yellow-400"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>`;
+                title.innerText = 'Missão Cumprida!';
+                message.innerText = 'Você eliminou a maioria dos focos!';
+                endScore.className = "block text-3xl font-bold text-green-400";
+            } else {
+                // Alert Icon
+                iconContainer.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-400"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
+                title.innerText = 'Cuidado!';
+                message.innerText = 'A infestação saiu do controle. Precisamos de mais atenção.';
+                endScore.className = "block text-3xl font-bold text-red-400";
+            }
+
+            endMosquitoCount.innerText = mosquitoCount;
+            endScore.innerText = score;
+        }
+
+        // --- LÓGICA DO CARD (RENDERIZAÇÃO E SWIPE) ---
+
+        function renderCurrentCard() {
+            cardContainer.innerHTML = ''; // Limpa
+            const cardData = deck[currentIndex];
+            
+            // Arrow Icons SVG
+            const leftArrow = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>`;
+            const rightArrow = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
+
+            const cardHTML = `
+                <div id="swipe-card" class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh] relative no-select border-4 border-slate-100 transform will-change-transform cursor-grab active:cursor-grabbing animate-enter touch-none">
+                     
+                     <!-- INDICADORES -->
+                     <div id="indicator-left" class="absolute top-10 left-6 z-20 border-4 rounded-lg p-2 px-4 transform -rotate-12 text-2xl font-bold uppercase tracking-widest ${cardData.leftIsCorrect ? 'border-green-500 text-green-600' : 'border-red-500 text-red-600'}" style="opacity: 0">
+                        ${cardData.leftIsCorrect ? 'CORRETO' : 'ERRADO'}
+                     </div>
+                     <div id="indicator-right" class="absolute top-10 right-6 z-20 border-4 rounded-lg p-2 px-4 transform rotate-12 text-2xl font-bold uppercase tracking-widest ${!cardData.leftIsCorrect ? 'border-green-500 text-green-600' : 'border-red-500 text-red-600'}" style="opacity: 0">
+                        ${!cardData.leftIsCorrect ? 'CORRETO' : 'ERRADO'}
+                     </div>
+
+                     <!-- IMAGEM -->
+                     <div class="h-[35%] w-full relative bg-gray-200 shrink-0 pointer-events-none select-none">
+                        <img src="${cardData.scenario.imageUrl}" class="w-full h-full object-cover pointer-events-none" alt="Scenario" draggable="false">
+                        <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/80 to-transparent p-3 pt-8 pointer-events-none">
+                            <h2 class="text-white text-2xl sm:text-3xl font-bold drop-shadow-md leading-tight">${cardData.scenario.title}</h2>
+                        </div>
+                     </div>
+
+                     <!-- CONTEÚDO -->
+                     <div class="flex-1 p-4 sm:p-6 flex flex-col justify-between relative z-10 overflow-y-auto pointer-events-none select-none">
+                        <p class="text-slate-600 text-base sm:text-lg font-medium leading-relaxed">
+                            ${cardData.scenario.description}
+                        </p>
+                        
+                        <div class="mt-2 space-y-3">
+                            <div class="flex items-center justify-between text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-wider mb-1">
+                                <span class="flex items-center gap-1">${leftArrow} Deslize</span>
+                                <span class="flex items-center gap-1">Deslize ${rightArrow}</span>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="p-3 rounded-xl border-2 text-center text-xs sm:text-sm font-semibold bg-slate-50 border-slate-200 text-slate-700 flex items-center justify-center min-h-[80px]">
+                                    ${cardData.leftIsCorrect ? cardData.scenario.correctAction : cardData.scenario.wrongAction}
+                                </div>
+                                <div class="p-3 rounded-xl border-2 text-center text-xs sm:text-sm font-semibold bg-slate-50 border-slate-200 text-slate-700 flex items-center justify-center min-h-[80px]">
+                                    ${!cardData.leftIsCorrect ? cardData.scenario.correctAction : cardData.scenario.wrongAction}
+                                </div>
+                            </div>
+                        </div>
+                     </div>
+                </div>
+            `;
+            
+            cardContainer.innerHTML = cardHTML;
+            const cardElement = document.getElementById('swipe-card');
+            attachDragEvents(cardElement, cardData);
+        }
+
+        // --- SISTEMA DE DRAG/SWIPE (Vanilla JS Pointer Events) ---
+        function attachDragEvents(element, cardData) {
+            let startX = 0;
+            let currentX = 0;
+            let isDragging = false;
+            
+            const indicatorLeft = document.getElementById('indicator-left');
+            const indicatorRight = document.getElementById('indicator-right');
+
+            const handlePointerDown = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                element.setPointerCapture(e.pointerId);
+                
+                startX = e.clientX;
+                currentX = e.clientX;
+                isDragging = true;
+                
+                // Remove transitions for instant movement
+                element.style.transition = 'none';
+            };
+
+            const handlePointerMove = (e) => {
+                if (!isDragging) return;
+                e.preventDefault();
+                currentX = e.clientX;
+                
+                const delta = currentX - startX;
+                const rotate = delta * 0.05;
+
+                // Aplicar transformações
+                element.style.transform = `translateX(${delta}px) rotate(${rotate}deg)`;
+
+                // Opacidade Indicadores
+                const leftOp = delta < -20 ? Math.min(1, Math.abs(delta + 20) / 100) : 0;
+                const rightOp = delta > 20 ? Math.min(1, Math.abs(delta - 20) / 100) : 0;
+                
+                indicatorLeft.style.opacity = leftOp;
+                indicatorRight.style.opacity = rightOp;
+
+                // Background Color Logic
+                const opacity = Math.min(0.2, Math.abs(delta) / 500);
+                let color = '';
+                if (delta < 0) { // Esquerda
+                    color = cardData.leftIsCorrect ? `rgba(34, 197, 94, ${opacity})` : `rgba(239, 68, 68, ${opacity})`;
+                } else if (delta > 0) { // Direita
+                    color = !cardData.leftIsCorrect ? `rgba(34, 197, 94, ${opacity})` : `rgba(239, 68, 68, ${opacity})`;
+                }
+                element.style.background = delta === 0 ? 'white' : color;
+                // Como definimos background com cor, precisamos garantir o branco base se opacidade for 0
+                if(delta === 0) element.style.backgroundColor = 'white';
+            };
+
+            const handlePointerUp = (e) => {
+                if (!isDragging) return;
+                try { element.releasePointerCapture(e.pointerId); } catch(err){}
+                
+                isDragging = false;
+                const delta = currentX - startX;
+                const threshold = 100;
+
+                // Restaurar transition para animação suave
+                element.style.transition = 'all 0.3s ease-out';
+                element.style.background = 'white'; // Reset color
+
+                if (delta > threshold) {
+                    // Direita
+                    finishSwipe('RIGHT', element);
+                } else if (delta < -threshold) {
+                    // Esquerda
+                    finishSwipe('LEFT', element);
+                } else {
+                    // Reset
+                    element.style.transform = 'translateX(0) rotate(0)';
+                    indicatorLeft.style.opacity = 0;
+                    indicatorRight.style.opacity = 0;
+                }
+            };
+
+            element.onpointerdown = handlePointerDown;
+            element.onpointermove = handlePointerMove;
+            element.onpointerup = handlePointerUp;
+            element.onpointercancel = handlePointerUp;
+            element.onpointerleave = handlePointerUp;
+        }
+
+        function finishSwipe(direction, element) {
+            // Animação de saída
+            element.classList.add(direction === 'RIGHT' ? 'animate-swipe-right' : 'animate-swipe-left');
+
+            // Lógica do jogo
+            const currentCard = deck[currentIndex];
+            const isLeft = direction === 'LEFT';
+            const isCorrect = isLeft === currentCard.leftIsCorrect;
+
+            if (isCorrect) {
+                mosquitoCount = Math.max(0, mosquitoCount - 1);
+            } else {
+                mosquitoCount += 3;
+            }
+
+            // Atualizar UI Stats imediatamente
+            updateMosquitoes(mosquitoCount);
+            scoreCounter.innerText = mosquitoCount;
+
+            // Avançar
+            setTimeout(() => {
+                if (currentIndex >= deck.length - 1) {
+                    endGame();
+                } else {
+                    currentIndex++;
+                    const progress = (currentIndex / deck.length) * 100;
+                    progressBar.style.width = `${progress}%`;
+                    renderCurrentCard();
+                }
+            }, 300);
+        }
+
+    </script>
+</body>
+</html>
